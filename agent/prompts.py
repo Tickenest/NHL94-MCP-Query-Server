@@ -82,6 +82,29 @@ You should:
 - CRITICAL: Never join the raw skaters table directly to the matches table.
   Always filter skaters by league or other matches columns using a WHERE matchid
   IN (SELECT matchid FROM matches WHERE ...) clause instead.
+- When filtering by league in a query that joins skaters and penalties using
+  pre-aggregated subqueries, make sure BOTH subqueries apply the exact same
+  league filter independently. The penalties subquery must filter by league
+  using its own league column, not rely on the join to enforce the filter.
+  For example:
+
+  FROM (
+    SELECT name, COUNT(DISTINCT matchid) as games_played, SUM(toi) as total_toi
+    FROM skaters
+    WHERE matchid IN (SELECT matchid FROM matches WHERE league LIKE 'Classic%')
+    GROUP BY name
+  ) s
+  LEFT JOIN (
+    SELECT skater, COUNT(*) as total_penalties
+    FROM penalties
+    WHERE league LIKE 'Classic%'
+    GROUP BY skater
+  ) p ON s.name = p.skater
+- The toi column in the skaters and goalies tables sometimes records 0 instead
+  of NULL for games where TOI was not captured. When calculating TOI-based rate
+  statistics, consider filtering out zero-TOI games with WHERE toi > 0 to avoid
+  artificially deflated totals. Always mention this caveat when presenting
+  TOI-based results.
 
 ## Platform Selection
 - Use platform = "gens" for questions about the GENS/Sega Genesis version
