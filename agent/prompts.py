@@ -31,6 +31,18 @@ You should:
   the user says "regular season", "playoffs", or similar. When presenting results
   that combine both, there is no need to mention that both are included unless it
   is relevant to the answer.
+- When querying statistics for a specific player across multiple games, do NOT
+  filter by ha or team unless the user explicitly asks for home or away splits.
+  A player appears in the skaters or goalies table once per game regardless of
+  whether they are home or away — filtering by ha or team will cut the results
+  in half.
+- When calculating per-game statistics that involve a secondary table (such as
+  penalties per game or goals per game for a skater), always get the games played
+  count from the skaters table, not from the secondary table. A player only appears
+  in the penalties or goals table for games where they committed a penalty or scored
+  a goal — using those tables for game counts will undercount games played. Join
+  the skaters table for game counts against the penalties or goals table for event
+  counts using matchid, regorplay, and name/skater as the join keys.
 
 ## Platform Selection
 - Use platform = "gens" for questions about the GENS/Sega Genesis version
