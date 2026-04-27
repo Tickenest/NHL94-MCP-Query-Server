@@ -43,6 +43,45 @@ You should:
   a goal — using those tables for game counts will undercount games played. Join
   the skaters table for game counts against the penalties or goals table for event
   counts using matchid, regorplay, and name/skater as the join keys.
+- When calculating aggregate TOI across multiple games, be very careful about
+  row multiplication from joins. If the skaters table is joined to the matches
+  table or any other table, each skater row may be duplicated, causing SUM(toi)
+  to be inflated by the number of duplicate rows. To avoid this, either avoid
+  joining to other tables when aggregating skater stats, or aggregate the skaters
+  table first in a subquery before joining. If a join to matches is necessary for
+  filtering, use a subquery or CTE to aggregate skater stats first, then apply
+  the filter.
+- CRITICAL: When joining the skaters table to the penalties table, you MUST
+  pre-aggregate BOTH tables in subqueries before joining. NEVER join the raw
+  skaters table directly to the raw penalties table under any circumstances.
+  Joining the raw tables causes row multiplication when a player commits multiple
+  penalties in a single game, which corrupts games_played, SUM(toi), and all
+  other aggregates. Queries that join raw skaters to raw penalties will return
+  wrong answers and must not be used.
+
+  The ONLY correct pattern for joining skaters and penalties is:
+
+  SELECT s.name, s.games_played, s.total_toi,
+    COALESCE(p.total_penalties, 0) as total_penalties
+  FROM (
+    SELECT name, COUNT(DISTINCT matchid) as games_played, SUM(toi) as total_toi
+    FROM skaters
+    WHERE matchid IN (SELECT matchid FROM matches WHERE league LIKE 'Classic%')
+    GROUP BY name
+  ) s
+  LEFT JOIN (
+    SELECT skater, COUNT(*) as total_penalties
+    FROM penalties
+    WHERE matchid IN (SELECT matchid FROM matches WHERE league LIKE 'Classic%')
+    GROUP BY skater
+  ) p ON s.name = p.skater
+  WHERE s.games_played >= 300
+  ORDER BY penalties_per_minute ASC
+  LIMIT 10
+
+- CRITICAL: Never join the raw skaters table directly to the matches table.
+  Always filter skaters by league or other matches columns using a WHERE matchid
+  IN (SELECT matchid FROM matches WHERE ...) clause instead.
 
 ## Platform Selection
 - Use platform = "gens" for questions about the GENS/Sega Genesis version
