@@ -1,0 +1,27 @@
+# Secrets
+.env
+.env.*
+
+# Databases
+data/*.db
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# AWS
+*.pem
+*.key
+.aws/
+samconfig.toml
+cdk.context.json
+
+# Editor
+*.swp
+.vscode/
+
+# OS
+Thumbs.db
