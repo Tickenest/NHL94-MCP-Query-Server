@@ -93,7 +93,9 @@ The databases are stored in an S3 bucket and updated twice daily by a separate L
 
 ## Example Questions and Answers
 
-*[Tickenest — add your favorite example questions and answers here]*
+- In the SNES database, who are the ten skaters who have the highest goals per game rates? Consider regular season and playoff games, and only skaters who have appeared in at least 300 games.
+- Which human coach has the highest rate of penalties committed per game in SNES?
+- In all leagues that begin with "Classic", list the ten skaters who have the most assists all-time.
 
 ---
 
