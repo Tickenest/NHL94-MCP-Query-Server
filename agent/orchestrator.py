@@ -3,7 +3,7 @@ import os
 import boto3
 from dotenv import load_dotenv
 from agent.prompts import SYSTEM_PROMPT
-from mcp_server.server import execute_sql
+from mcp_server.server import execute_sql, search_leagues
 
 load_dotenv()
 
@@ -20,8 +20,9 @@ def download_databases():
     """Download .db files from S3 to the path specified in environment variables."""
     s3 = boto3.client("s3")
     for filename, local_path in DB_FILES.items():
+        print(f"Downloading {filename} from S3 to {local_path}...")
         s3.download_file(S3_BUCKET, filename, local_path)
-
+        print(f"Download complete. File exists: {os.path.exists(local_path)}")
 
 def is_lambda() -> bool:
     """Check if we are running inside AWS Lambda."""
@@ -52,6 +53,38 @@ TOOLS = [
                         }
                     },
                     "required": ["platform", "query"]
+                }
+            }
+        }
+    },
+    {
+        "toolSpec": {
+            "name": "search_leagues",
+            "description": (
+                "Search for exact league names in the database using a partial "
+                "or approximate search term. Use this whenever the user refers "
+                "to a league by an approximate, partial, or informal name before "
+                "constructing a SQL query that filters by league."
+            ),
+            "inputSchema": {
+                "json": {
+                    "type": "object",
+                    "properties": {
+                        "platform": {
+                            "type": "string",
+                            "description": "Either 'gens' or 'snes'",
+                            "enum": ["gens", "snes"]
+                        },
+                        "search_term": {
+                            "type": "string",
+                            "description": (
+                                "A partial or approximate league name to search "
+                                "for. Use individual words or partial strings. "
+                                "For example: 'Classic Fall 2023' or 'Chaos Spring'."
+                            )
+                        }
+                    },
+                    "required": ["platform", "search_term"]
                 }
             }
         }
@@ -102,6 +135,11 @@ def run_agent(question: str) -> str:
                         result = execute_sql(
                             platform=tool_input["platform"],
                             query=tool_input["query"]
+                        )
+                    elif tool_name == "search_leagues":
+                        result = search_leagues(
+                            platform=tool_input["platform"],
+                            search_term=tool_input["search_term"]
                         )
                     else:
                         result = json.dumps({

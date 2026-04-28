@@ -52,5 +52,58 @@ def execute_sql(platform: str, query: str) -> str:
     except sqlite3.Error as e:
         return json.dumps({"error": str(e)})
 
+@mcp.tool()
+def search_leagues(platform: str, search_term: str) -> str:
+    """
+    Search for league names in the database that match a search term.
+    Use this when the user refers to a league by an approximate or partial name.
+    Returns a list of matching exact league names.
+
+    Args:
+        platform: Either 'gens' or 'snes'
+        search_term: A partial or approximate league name to search for
+
+    Returns:
+        JSON string containing a list of matching league names
+    """
+    if platform not in DB_PATHS:
+        return json.dumps({
+            "error": f"Unknown platform '{platform}'. Must be 'gens' or 'snes'."
+        })
+
+    try:
+        conn = sqlite3.connect(DB_PATHS[platform])
+        cursor = conn.cursor()
+
+        words = search_term.strip().split()
+        conditions = " AND ".join([
+            f"league LIKE ?" for _ in words
+        ])
+        params = [f"%{word}%" for word in words]
+
+        cursor.execute(f"""
+            SELECT DISTINCT league
+            FROM matches
+            WHERE {conditions}
+            ORDER BY league
+        """, params)
+
+        leagues = [row[0] for row in cursor.fetchall()]
+        conn.close()
+
+        if not leagues:
+            return json.dumps({
+                "message": "No leagues found matching that search term.",
+                "matches": []
+            })
+
+        return json.dumps({
+            "message": f"Found {len(leagues)} matching league(s).",
+            "matches": leagues
+        })
+
+    except sqlite3.Error as e:
+        return json.dumps({"error": str(e)})
+
 if __name__ == "__main__":
     mcp.run()
