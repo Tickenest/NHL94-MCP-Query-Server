@@ -25,7 +25,7 @@ A Discord user invokes the `/qmcpquery` slash command with a plain English quest
 /qmcpquery question: Who led the GENS Classic leagues in points per game among forwards with at least 100 games played?
 ```
 
-The system figures out which database tables to query, writes the SQL, executes it, and returns a formatted answer — all without the user writing a single line of SQL.
+The system figures out which database tables to query, writes the SQL, executes it, and returns a formatted answer — all without the user writing a single line of SQL. League names can be specified informally ("Classic Fall 2023") and the system will resolve them to exact database values automatically.
 
 ---
 
@@ -45,19 +45,21 @@ NHL94MCPQuery (Lambda)
   - Runs the agentic loop
   - PATCHes the Discord interaction with the final answer
             ↓
-  ┌─────────────────────────────┐
-  │     Agentic Loop            │
-  │                             │
-  │  Claude (via Bedrock)       │
-  │    ↓ writes SQL             │
-  │  MCP Client                 │
-  │    ↓ tool call              │
-  │  MCP Server                 │
-  │    ↓ executes query         │
-  │  SQLite (.db files in /tmp) │
-  │    ↓ returns results        │
-  │  Claude formats response    │
-  └─────────────────────────────┘
+  ┌──────────────────────────────────────┐
+  │     Agentic Loop                     │
+  │                                      │
+  │  Claude (via Bedrock)                │
+  │    ↓ resolves league names (if needed) │
+  │  MCP Server — search_leagues tool    │
+  │    ↓ returns exact league names      │
+  │  Claude writes SQL                   │
+  │    ↓ tool call                       │
+  │  MCP Server — execute_sql tool       │
+  │    ↓ executes query                  │
+  │  SQLite (.db files in /tmp)          │
+  │    ↓ returns results                 │
+  │  Claude formats response             │
+  └──────────────────────────────────────┘
             ↓
 Discord Response
 ```
@@ -67,10 +69,18 @@ Discord Response
 ## What Makes This Interesting
 
 ### Agentic AI with MCP
-This project uses Anthropic's **Model Context Protocol (MCP)** — a relatively new open standard for connecting AI models to external tools and data sources. The MCP server exposes a single `execute_sql` tool. Claude calls this tool one or more times per question, reasoning about which tables to query and in what order, until it has enough information to formulate a complete answer.
+This project uses Anthropic's **Model Context Protocol (MCP)** — a relatively new open standard for connecting AI models to external tools and data sources. The MCP server exposes two tools that Claude calls as needed during the agentic loop:
+
+- **`execute_sql`** — executes a SQL SELECT statement against the GENS or SNES database and returns the results as JSON. Claude writes the SQL dynamically based on the user's question and the schema document in the system prompt.
+- **`search_leagues`** — resolves informal or approximate league name references to exact database values. When a user says "Classic Fall 2023", Claude calls this tool first to find all matching league names (e.g. `Classic_Fall2023_GENS-A`, `Classic_Fall2023_GENS-B`) before constructing any SQL. If the user provides an exact league name, the tool is skipped entirely.
+
+This two-tool design keeps the MCP server lean while covering two distinct needs: general-purpose data access and fuzzy input resolution.
 
 ### Claude Writes the SQL
 Rather than hardcoding query logic for every possible question, Claude dynamically generates SQL based on a detailed schema document embedded in the system prompt. This means the system can answer questions that were never anticipated at build time. A well-crafted schema description does the heavy lifting — Claude reads the table structures, column definitions, and domain-specific notes, then writes correct SQL for a remarkably wide range of questions.
+
+### Fuzzy League Name Matching
+League names in the database follow a precise format (e.g. `Classic_Fall2023_GENS-A`) that users rarely type exactly. The `search_leagues` tool handles this by splitting the user's search term into words and querying the database for league names containing all of them. Claude includes all matching leagues in its query unless the user specifies a single one, and reports back if no matches are found.
 
 ### Deferred Discord Response Pattern
 Discord requires a response within 3 seconds of a slash command. Since an LLM query takes much longer than that, the system uses a deferred response pattern: the interaction Lambda immediately ACKs the command, then invokes the worker Lambda asynchronously. The worker Lambda PATCHes the original interaction with the final answer once it's ready.
@@ -93,9 +103,8 @@ The databases are stored in an S3 bucket and updated twice daily by a separate L
 
 ## Example Questions and Answers
 
-- In the SNES database, who are the ten skaters who have the highest goals per game rates? Consider regular season and playoff games, and only skaters who have appeared in at least 300 games.
-- Which human coach has the highest rate of penalties committed per game in SNES?
-- In all leagues that begin with "Classic", list the ten skaters who have the most assists all-time.
+- Across all leagues that begin with SNES_Draft, list the five coaches who have had the biggest positive and negative differentials in penalties committed and penalties committed by their opponents
+- In the Classic_Spring2026_GENS-A league, which three skaters have scored the most goals per game?
 
 ---
 
@@ -112,7 +121,7 @@ NHL94-MCP-Query-Server/
 │   ├── orchestrator.py      — Agentic loop, Bedrock API calls, tool dispatch
 │   └── prompts.py           — System prompt with embedded schema
 ├── mcp_server/
-│   └── server.py            — MCP server, execute_sql tool definition
+│   └── server.py            — MCP server, execute_sql and search_leagues tools
 ├── schema/
 │   └── schema.md            — Full database schema documentation
 ├── docs/
