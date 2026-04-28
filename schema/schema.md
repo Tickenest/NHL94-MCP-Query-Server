@@ -62,13 +62,13 @@ Primary key: (match\_id, RegOrPlay)
 
 | hometeamabbrev | TEXT | The 2-3 letter abbreviation of the home team name |
 
-| homeplayer | TEXT | The name of the human who played as the home team |
+| homeplayer | TEXT | The name of the human coach who played the video game as the home team |
 
 | awayteam | TEXT | The long name of the away team |
 
 | awayteamabbrev | TEXT | The 2-3 letter abbreviation of the away team name |
 
-| awayplayer | TEXT | The name of the human who played as the away team |
+| awayplayer | TEXT | The name of the human coach who played the video game as the away team |
 
 | awayscore | INTEGER | The number of goals scored by the away team |
 

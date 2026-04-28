@@ -10,7 +10,7 @@ load_dotenv()
 MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 # S3 configuration
-S3_BUCKET = "nhl94dbs"
+S3_BUCKET = os.environ.get("S3_BUCKET", "nhl94dbs")
 DB_FILES = {
     "gensDatabase.db": os.environ.get("GENS_DB_PATH", "data/gensDatabase.db"),
     "snesDatabase.db": os.environ.get("SNES_DB_PATH", "data/snesDatabase.db"),
