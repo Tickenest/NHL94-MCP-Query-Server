@@ -1,4 +1,5 @@
 import json
+import os
 import boto3
 from dotenv import load_dotenv
 from agent.prompts import SYSTEM_PROMPT
@@ -8,7 +9,25 @@ load_dotenv()
 
 MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
-client = boto3.client("bedrock-runtime", region_name="us-east-1")
+# S3 configuration
+S3_BUCKET = "nhl94dbs"
+DB_FILES = {
+    "gensDatabase.db": os.environ.get("GENS_DB_PATH", "data/gensDatabase.db"),
+    "snesDatabase.db": os.environ.get("SNES_DB_PATH", "data/snesDatabase.db"),
+}
+
+def download_databases():
+    """Download .db files from S3 to the path specified in environment variables."""
+    s3 = boto3.client("s3")
+    for filename, local_path in DB_FILES.items():
+        s3.download_file(S3_BUCKET, filename, local_path)
+
+
+def is_lambda() -> bool:
+    """Check if we are running inside AWS Lambda."""
+    return os.environ.get("AWS_LAMBDA_FUNCTION_NAME") is not None
+
+bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
 
 TOOLS = [
     {
@@ -42,32 +61,33 @@ TOOLS = [
 def run_agent(question: str) -> str:
     """
     Run the agentic loop for a given question.
+    Downloads databases from S3 if running in Lambda.
     Returns the final formatted answer as a string.
     """
+    if is_lambda():
+        download_databases()
+
     messages = [{"role": "user", "content": [{"text": question}]}]
 
     while True:
-        response = client.converse(
+        response = bedrock.converse(
             modelId=MODEL_ID,
             system=[{"text": SYSTEM_PROMPT}],
             toolConfig={"tools": TOOLS},
             messages=messages
         )
 
-        # Append assistant response to history
         output_message = response["output"]["message"]
         messages.append(output_message)
 
         stop_reason = response["stopReason"]
 
-        # If no tool calls, we have our final answer
         if stop_reason == "end_turn":
             for block in output_message["content"]:
                 if "text" in block:
                     return block["text"]
             return "No response generated."
 
-        # Handle tool calls
         if stop_reason == "tool_use":
             tool_results = []
 
@@ -95,7 +115,6 @@ def run_agent(question: str) -> str:
                         }
                     })
 
-            # Append tool results and loop
             messages.append({"role": "user", "content": tool_results})
 
 

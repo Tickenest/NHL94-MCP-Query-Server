@@ -25,3 +25,7 @@ cdk.context.json
 
 # OS
 Thumbs.db
+
+# Deployment
+package/
+deployment.zip

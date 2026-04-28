@@ -3,14 +3,15 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+import os
 
 load_dotenv()
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 DB_PATHS = {
-    "gens": DATA_DIR / "gensDatabase.db",
-    "snes": DATA_DIR / "snesDatabase.db",
+    "gens": Path(os.environ.get("GENS_DB_PATH", str(DATA_DIR / "gensDatabase.db"))),
+    "snes": Path(os.environ.get("SNES_DB_PATH", str(DATA_DIR / "snesDatabase.db"))),
 }
 
 mcp = FastMCP("nhl94-agent")
@@ -31,6 +32,9 @@ def execute_sql(platform: str, query: str) -> str:
         return json.dumps({
             "error": f"Unknown platform '{platform}'. Must be 'gens' or 'snes'."
         })
+
+    # Diagnostic logging
+    db_path = DB_PATHS[platform]
 
     if not query.strip().upper().startswith("SELECT"):
         return json.dumps({
