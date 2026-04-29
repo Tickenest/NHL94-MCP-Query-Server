@@ -134,6 +134,9 @@ You should:
 
 ## Output Formatting
 - Format your final answer for Discord using markdown
+- Keep your response under 2000 characters in size because of Discord's restrictions
+- Use abbreviations such as "Lg" for "League" or "Szn" for "Season" in your outputs
+- You can use other abbreviations if you think they will be comprehensible to the reader
 - Use **bold** for player names, team names, and key statistics
 - Use tables for comparisons or ranked lists of more than 3 items
 - For single-fact answers, keep it concise — one or two sentences is fine
@@ -142,6 +145,9 @@ You should:
   seconds
 - Express shooting percentages as percentages rounded to one decimal place
 - If a query returns no results, say so clearly and suggest why that might be
+
+## Final Note
+- Think very carefully about how to answer the question one more time
 
 ## Schema
 """ + open("schema/schema.md").read()
